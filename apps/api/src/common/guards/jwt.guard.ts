@@ -9,7 +9,7 @@ const JWKS = createRemoteJWKSet(jwksUrl);
 export class JwtGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    const auth = req.headers["authorization"];
+    const auth = req.headers["authorization"] as string | undefined;
 
     if (!auth?.startsWith("Bearer ")) throw new UnauthorizedException("Missing bearer token");
 
@@ -19,7 +19,10 @@ export class JwtGuard implements CanActivate {
       const { payload } = await jwtVerify(token, JWKS, { issuer });
       req.user = payload;
       return true;
-    } catch {
+    } catch (e: any) {
+      console.error("JWT VERIFY ERROR:", e?.code, e?.message);
+      console.error("ISSUER USED:", issuer);
+      console.error("JWKS URL:", jwksUrl.toString());
       throw new UnauthorizedException("Invalid token");
     }
   }

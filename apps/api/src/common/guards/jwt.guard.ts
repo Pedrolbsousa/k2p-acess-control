@@ -20,9 +20,6 @@ export class JwtGuard implements CanActivate {
       req.user = payload;
       return true;
     } catch (e: any) {
-      console.error("JWT VERIFY ERROR:", e?.code, e?.message);
-      console.error("ISSUER USED:", issuer);
-      console.error("JWKS URL:", jwksUrl.toString());
       throw new UnauthorizedException("Invalid token");
     }
   }

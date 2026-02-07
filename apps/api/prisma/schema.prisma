@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+  url      = env("DATABASE_URL")
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PackageStatus {
+  RECEIVED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PackagePhotoType {
+  ARRIVAL
+  PICKUP_PROOF
+}
+
+enum PackageEventType {
+  RECEIVED
+  NOTIFIED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+model PackageDelivery {
+  id                 String         @id @default(uuid())
+  condominiumId      String
+  unitId             String?
+  recipientPersonId  String?
+
+  carrier            String?
+  trackingCode       String?
+  description        String?
+  status             PackageStatus  @default(RECEIVED)
+
+  receivedAt         DateTime       @default(now())
+  receivedByPersonId String?
+
+  deliveredAt        DateTime?
+  deliveredByPersonId String?
+  deliveredToName    String?
+  deliveredToDocument String?
+  deliveredToPersonId String?
+
+  notes              String?
+  createdVia         String         @default("PORTARIA")
+  externalThreadId   String?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  photos             PackagePhoto[]
+  events             PackageEvent[]
+
+  @@index([unitId, status])
+  @@index([trackingCode])
+}
+
+model PackagePhoto {
+  id         String          @id @default(uuid())
+  packageId  String
+  photoUrl   String
+  photoType  PackagePhotoType @default(ARRIVAL)
+  createdAt  DateTime        @default(now())
+
+  pkg        PackageDelivery @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId])
+}
+
+model PackageEvent {
+  id          String          @id @default(uuid())
+  packageId   String
+  occurredAt  DateTime        @default(now())
+  type        PackageEventType
+  performedByPersonId String?
+  payload     Json?
+
+  pkg         PackageDelivery @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId, occurredAt])
+}

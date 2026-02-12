@@ -14,7 +14,6 @@ type AuthUser = {
   tokenPayload: Record<string, any>;
 };
 
-// Cache do JWKS (evita buscar a cada request)
 let cachedJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 function getJwks(jwksUrl: string) {
@@ -41,11 +40,12 @@ export class KeycloakJwtGuard implements CanActivate {
     }
 
     try {
-      const { payload } = await jwtVerify(token, getJwks(jwksUrl), {
-        issuer,
-      });
+      const { payload } = await jwtVerify(token, getJwks(jwksUrl), { issuer });
 
-      const roles: string[] = (payload as any)?.realm_access?.roles ?? [];
+      const roles: string[] =
+        (payload as any)?.realm_access?.roles ??
+        (payload as any)?.resource_access?.web?.roles ??
+        [];
 
       const user: AuthUser = {
         sub: payload.sub ?? "",
@@ -59,7 +59,7 @@ export class KeycloakJwtGuard implements CanActivate {
 
       req.user = user;
       return true;
-    } catch (err) {
+    } catch {
       throw new UnauthorizedException("Invalid token");
     }
   }

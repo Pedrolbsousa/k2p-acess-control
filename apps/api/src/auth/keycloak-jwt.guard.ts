@@ -1,66 +1,57 @@
 import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
+    CanActivate,
+    ExecutionContext,
+    Injectable,
+    UnauthorizedException,
 } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-
-type AuthUser = {
-  sub: string;
-  roles: string[];
-  condominiumId: string | null;
-  unitId: string | null;
-  tokenPayload: Record<string, any>;
-};
-
-let cachedJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
-
-function getJwks(jwksUrl: string) {
-  if (!cachedJwks) cachedJwks = createRemoteJWKSet(new URL(jwksUrl));
-  return cachedJwks;
-}
+import { IS_PUBLIC_KEY } from "./public.decorator";
 
 @Injectable()
 export class KeycloakJwtGuard implements CanActivate {
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest();
+    constructor(private reflector: Reflector) { }
 
-    const authHeader = req.headers["authorization"] as string | undefined;
-    const token =
-      authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    async canActivate(context: ExecutionContext): Promise<boolean> {
+        const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (isPublic) return true;
 
-    if (!token) throw new UnauthorizedException("Missing bearer token");
+        const req = context.switchToHttp().getRequest();
+        const authHeader = req.headers["authorization"] as string | undefined;
+        const token =
+            authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
 
-    const issuer = process.env.KEYCLOAK_ISSUER;
-    const jwksUrl = process.env.KEYCLOAK_JWKS_URL;
+        if (!token) throw new UnauthorizedException("Missing bearer token");
 
-    if (!issuer || !jwksUrl) {
-      throw new UnauthorizedException("Server auth config missing");
+        const issuer = process.env.KEYCLOAK_ISSUER;
+        const jwksUrl = process.env.KEYCLOAK_JWKS_URL;
+        if (!issuer || !jwksUrl) throw new UnauthorizedException("Server auth config missing");
+
+        try {
+            const { payload } = await jwtVerify(token, createRemoteJWKSet(new URL(jwksUrl)), { issuer });
+            const azp = (payload as any)?.azp as string | undefined;
+
+            const roles: string[] =
+                (payload as any)?.realm_access?.roles ??
+                (payload as any)?.resource_access?.web?.roles ??
+                [];
+                
+            console.log("extracted roles", roles);
+
+            req.user = {
+                sub: payload.sub ?? "",
+                roles,
+                condominiumId: ((payload as any)?.condominiumId as string) ?? null,
+                unitId: ((payload as any)?.unitId as string) ?? null,
+                tokenPayload: payload as any,
+            };
+
+            return true;
+        } catch {
+            throw new UnauthorizedException("Invalid token");
+        }
     }
-
-    try {
-      const { payload } = await jwtVerify(token, getJwks(jwksUrl), { issuer });
-
-      const roles: string[] =
-        (payload as any)?.realm_access?.roles ??
-        (payload as any)?.resource_access?.web?.roles ??
-        [];
-
-      const user: AuthUser = {
-        sub: payload.sub ?? "",
-        roles,
-        condominiumId: ((payload as any)?.condominiumId as string) ?? null,
-        unitId: ((payload as any)?.unitId as string) ?? null,
-        tokenPayload: payload as any,
-      };
-
-      if (!user.sub) throw new Error("Missing sub");
-
-      req.user = user;
-      return true;
-    } catch {
-      throw new UnauthorizedException("Invalid token");
-    }
-  }
 }

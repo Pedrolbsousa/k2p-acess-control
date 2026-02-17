@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { signOut } from "next-auth/react";
 
 type NavItem = {
   label: string;
@@ -130,10 +131,7 @@ export default function DashboardLayout({
           <div className="mt-6 border-t border-white/10 pt-4">
             <button
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-200/90 ring-1 ring-transparent transition hover:bg-rose-500/10 hover:ring-rose-500/20"
-              onClick={() => {
-                // depois você troca isso por signOut()
-                alert("Sair (fake)");
-              }}
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
               <Icon>
                 <Svg d="M10 17l-1 0a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4h1M14 7l5 5-5 5M19 12H10" />

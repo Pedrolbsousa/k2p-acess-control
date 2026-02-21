@@ -9,5 +9,6 @@ async function bootstrap() {
   console.log(`API listening on http://localhost:${port}`);
   console.log("ISSUER", process.env.KEYCLOAK_ISSUER);
   console.log("JWKS", process.env.KEYCLOAK_JWKS_URL);
+  console.log("DATABASE_URL", process.env.DATABASE_URL);
 }
 bootstrap();

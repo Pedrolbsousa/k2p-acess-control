@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class PortariaService {
-  //constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async createPackage(dto: CreatePackageDto) {
     const now = new Date();
@@ -38,7 +38,7 @@ export class PortariaService {
       };
     }
 
-    /*const created = await this.prisma.packageDelivery.create({
+const created = await this.prisma.packageDelivery.create({
       data,
       include: { events: true, photos: true },
     });
@@ -80,7 +80,7 @@ export class PortariaService {
           payload: dto as any,
         },
       },
-    };*/
+    };
 
     if (dto.photoUrl) {
       data.photos = {
@@ -91,13 +91,13 @@ export class PortariaService {
         },
       };
     }
-    /*
+
     const updated = await this.prisma.packageDelivery.update({
       where: { id },
       data,
       include: { events: true, photos: true },
-    });*/
+    });
 
-    return data;
+    return updated;
   }
 }

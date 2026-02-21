@@ -11,5 +11,13 @@
     "dev": "npm run dev:api & npm run dev:web",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.4.0",
+    "@prisma/adapter-pg": "^7.4.0",
+    "@prisma/client": "^6.19.2"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.2"
   }
 }

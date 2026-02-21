@@ -9,16 +9,16 @@ export class PortariaController {
 
   @Post("packages")
   create(@Body() dto: CreatePackageDto) {
-    //return this.portaria.createPackage(dto);
+    return this.portaria.createPackage(dto);
   }
 
   @Get("packages")
   list(@Query("status") status?: string) {
-    //return this.portaria.listPackages(status);
+    return this.portaria.listPackages(status);
   }
 
   @Post("packages/:id/deliver")
   deliver(@Param("id") id: string, @Body() dto: DeliverPackageDto) {
-    //return this.portaria.deliverPackage(id, dto);
+    return this.portaria.deliverPackage(id, dto);
   }
 }

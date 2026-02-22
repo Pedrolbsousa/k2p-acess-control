@@ -1,8 +1,4 @@
-/*import NextAuth from "next-auth";
 import { authOptions } from "@/app/authOptions";
-
-const handler = NextAuth(authOptions as any);
-export { handler as GET, handler as POST };*/
 import NextAuth from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
 

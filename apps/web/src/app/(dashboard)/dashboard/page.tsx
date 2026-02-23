@@ -34,9 +34,9 @@ export default async function Page() {
     session?.user?.name ||
     // algumas integrações colocam "preferred_username"
    
-    session?.user?.preferred_username ||
+    //session?.user?.preferred_username ||
   
-    session?.user?.username ||
+    //session?.user?.username ||
     "Usuário";
 
   // 🔸 Dados fake (substituir depois por chamadas reais)

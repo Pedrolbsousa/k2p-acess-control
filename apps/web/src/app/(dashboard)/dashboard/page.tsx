@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 // ✅ Ajuste este import se o seu authOptions estiver em outro arquivo.
 // Opção comum (App Router):
 import { authOptions } from "../../authOptions";
+import Link from "next/link";
 
 type Status = "Aguardando" | "Aprovada" | "Recusada";
 
@@ -148,7 +149,9 @@ export default async function Page() {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg backdrop-blur">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-semibold">Encomendas Pendentes</h2>
-            <button className="text-sm text-white/70 hover:text-white">Ver Todas →</button>
+            <Link href="/portaria/encomendas">
+              <button className="text-sm text-white/70 hover:text-white">Ver Todas →</button>
+            </Link>
           </div>
 
           <div className="space-y-3">

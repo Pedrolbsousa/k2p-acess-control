@@ -1,67 +1,74 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import PackageCreateModal from "./modal/PackageCreateModal";
 
 type EncomendaStatus = "PENDENTE" | "ENTREGUE" | "DEVOLVIDA";
 
 type Encomenda = {
   id: string;
-  unidade: string; // ex: "Apto 504"
-  morador: string; // ex: "Julia Martins"
-  transportadora: string; // ex: "Amazon"
+  unidade: string; // ex: "Apto 504" (aqui vamos usar unitId por enquanto)
+  morador: string; // ainda não temos join -> placeholder
+  transportadora: string;
   rastreio?: string;
   recebidoEm: string; // ISO
   entregueEm?: string; // ISO
   status: EncomendaStatus;
 };
 
-const MOCK_ENCOMENDAS: Encomenda[] = [
-  {
-    id: "ENC-0001",
-    unidade: "Apto 504",
-    morador: "Julia Martins",
-    transportadora: "Amazon",
-    rastreio: "BR123456789",
-    recebidoEm: "2026-02-20T11:22:00.000Z",
-    status: "PENDENTE",
-  },
-  {
-    id: "ENC-0002",
-    unidade: "Apto 4636",
-    morador: "Paulo Souza",
-    transportadora: "Mercado Livre",
-    recebidoEm: "2026-02-20T10:15:00.000Z",
-    entregueEm: "2026-02-20T12:45:00.000Z",
-    status: "ENTREGUE",
-  },
-  {
-    id: "ENC-0003",
-    unidade: "Apto 5798",
-    morador: "Matheus",
-    transportadora: "DHL",
-    recebidoEm: "2026-02-19T18:40:00.000Z",
-    status: "PENDENTE",
-  },
-  {
-    id: "ENC-0004",
-    unidade: "Apto 101",
-    morador: "Jovã Verino",
-    transportadora: "Correios",
-    recebidoEm: "2026-02-18T09:05:00.000Z",
-    status: "DEVOLVIDA",
-  },
-  {
-    id: "ENC-0005",
-    unidade: "Apto 101",
-    morador: "Kédyssa Stéfany",
-    transportadora: "Correios",
-    recebidoEm: "2026-02-18T09:05:00.000Z",
-    status: "ENTREGUE",
-  },
-];
+type ApiPackageDelivery = {
+  id: string;
+  condominiumId: string;
+  unitId?: string | null;
+  recipientPersonId?: string | null;
+
+  carrier?: string | null;
+  trackingCode?: string | null;
+  description?: string | null;
+  status: "RECEIVED" | "DELIVERED" | string;
+
+  receivedAt: string;
+  deliveredAt?: string | null;
+
+  // outros campos existem, mas não precisamos agora
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+async function createPackageWithOptionalPhoto(accessToken: string, payload: any, photo?: Blob | null) {
+  // Se você ainda NÃO tem endpoint de upload, mande só JSON:
+  if (!photo) {
+    const res = await fetch(`${API_BASE_URL}/portaria/packages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Erro ao cadastrar (HTTP ${res.status})`);
+    return await res.json();
+  }
+
+  // Se você for aceitar foto no backend, use multipart:
+  const fd = new FormData();
+  fd.append("data", JSON.stringify(payload));
+  fd.append("photo", photo, "package.jpg");
+
+  const res = await fetch(`${API_BASE_URL}/portaria/packages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: fd,
+  });
+
+  if (!res.ok) throw new Error(`Erro ao cadastrar (HTTP ${res.status})`);
+  return await res.json();
+}
 
 function fmtDate(iso: string) {
-  // Formata localmente sem depender de libs
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(
@@ -82,12 +89,104 @@ function statusBadge(status: EncomendaStatus) {
   }
 }
 
+function mapApiToUi(p: ApiPackageDelivery): Encomenda {
+  const uiStatus: EncomendaStatus =
+    p.status === "DELIVERED" ? "ENTREGUE" : "PENDENTE";
+
+  const unidade = p.unitId ? `Apto ${p.unitId}` : "Sem unidade";
+
+  // Ainda não temos join com Person/Unit no front:
+  const morador = p.recipientPersonId ? `Pessoa ${p.recipientPersonId}` : "—";
+
+  return {
+    id: p.id,
+    unidade,
+    morador,
+    transportadora: p.carrier || "—",
+    rastreio: p.trackingCode || undefined,
+    recebidoEm: p.receivedAt,
+    entregueEm: p.deliveredAt || undefined,
+    status: uiStatus,
+  };
+}
+
+async function apiFetch<T>(
+  path: string,
+  accessToken: string,
+  init?: RequestInit
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    let msg = `Erro HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      msg = body?.message?.toString?.() || msg;
+    } catch { }
+    throw new Error(msg);
+  }
+
+  return (await res.json()) as T;
+}
+
 export default function EncomendasPage() {
+  const { data: session, status: authStatus } = useSession();
+  const accessToken = (session as any)?.accessToken;
+
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<EncomendaStatus | "TODAS">("TODAS");
 
-  // no futuro: troque isso por fetch da API
-  const encomendas = MOCK_ENCOMENDAS;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [encomendas, setEncomendas] = useState<Encomenda[]>([]);
+
+  const [open, setOpen] = useState(false);
+
+  async function load() {
+    if (!accessToken) return;
+
+    setLoading(true);
+    setError("");
+    try {
+      // traz todas (pendentes + entregues) e filtra no front
+      const data = await apiFetch<ApiPackageDelivery[]>(
+        "/portaria/packages",
+        accessToken
+      );
+      setEncomendas(data.map(mapApiToUi));
+    } catch (e: any) {
+      setError(e?.message || "Erro ao carregar encomendas");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (authStatus === "authenticated") {
+      load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus]);
+
+  async function darBaixa(id: string) {
+    if (!accessToken) return;
+
+    try {
+      await apiFetch(`/portaria/packages/${id}/deliver`, accessToken, {
+        method: "POST",
+      });
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Erro ao dar baixa");
+    }
+  }
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -122,12 +221,13 @@ export default function EncomendasPage() {
         <div className="flex flex-col gap-4 border-b border-slate-800 p-5 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-sm text-slate-400">Cadastros &gt; Encomendas</div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-100">
-              Encomendas
-            </h1>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-100">Encomendas</h1>
             <p className="mt-1 text-sm text-slate-400">
               Lista completa com busca, filtros e ações rápidas.
             </p>
+            {error ? (
+              <p className="mt-2 text-sm text-rose-300">Erro: {error}</p>
+            ) : null}
           </div>
 
           <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
@@ -155,20 +255,29 @@ export default function EncomendasPage() {
             </select>
 
             <button
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-              onClick={() => alert("Abrir /encomendas/nova (implementar rota)")}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              disabled={authStatus !== "authenticated"}
+              onClick={() => setOpen(true)}
             >
               + Nova Encomenda
             </button>
+            <PackageCreateModal
+              open={open}
+              onClose={() => setOpen(false)}
+              onSubmit={async ({ payload, photo }) => {
+                if (!accessToken) throw new Error("Sem accessToken");
+                await createPackageWithOptionalPhoto(accessToken, payload, photo);
+                // depois: refetch da lista
+              }} />
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 p-5 md:grid-cols-4">
-          <StatCard title="Total" value={counts.total} />
-          <StatCard title="Pendentes" value={counts.pendentes} />
-          <StatCard title="Entregues" value={counts.entregues} />
-          <StatCard title="Devolvidas" value={counts.devolvidas} />
+          <StatCard title="Total" value={loading ? "—" : counts.total} />
+          <StatCard title="Pendentes" value={loading ? "—" : counts.pendentes} />
+          <StatCard title="Entregues" value={loading ? "—" : counts.entregues} />
+          <StatCard title="Devolvidas" value={loading ? "—" : counts.devolvidas} />
         </div>
 
         {/* Table */}
@@ -184,7 +293,9 @@ export default function EncomendasPage() {
             </div>
 
             <div className="divide-y divide-slate-800 bg-slate-950/20">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <div className="p-6 text-sm text-slate-400">Carregando encomendas...</div>
+              ) : filtered.length === 0 ? (
                 <div className="p-6 text-sm text-slate-400">
                   Nenhuma encomenda encontrada com os filtros atuais.
                 </div>
@@ -198,7 +309,8 @@ export default function EncomendasPage() {
                       <div className="text-sm font-semibold text-slate-100">{e.id}</div>
                       {e.rastreio ? (
                         <div className="mt-1 text-xs text-slate-400">
-                          Rastreio: <span className="text-slate-300">{e.rastreio}</span>
+                          Rastreio:{" "}
+                          <span className="text-slate-300">{e.rastreio}</span>
                         </div>
                       ) : (
                         <div className="mt-1 text-xs text-slate-500">Sem rastreio</div>
@@ -227,7 +339,8 @@ export default function EncomendasPage() {
                       <div className="text-sm text-slate-100">{e.transportadora}</div>
                       {e.entregueEm ? (
                         <div className="mt-1 text-xs text-slate-400">
-                          Entregue: <span className="text-slate-300">{fmtDate(e.entregueEm)}</span>
+                          Entregue:{" "}
+                          <span className="text-slate-300">{fmtDate(e.entregueEm)}</span>
                         </div>
                       ) : (
                         <div className="mt-1 text-xs text-slate-500">Ainda não entregue</div>
@@ -242,7 +355,7 @@ export default function EncomendasPage() {
                       <div className="flex gap-2 md:justify-end">
                         <button
                           className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
-                          onClick={() => alert(`Abrir detalhes: ${e.id}`)}
+                          onClick={() => alert(`Abrir detalhes: ${e.id} (implementar)`)}
                         >
                           Ver
                         </button>
@@ -250,14 +363,14 @@ export default function EncomendasPage() {
                         {e.status === "PENDENTE" ? (
                           <button
                             className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-500"
-                            onClick={() => alert(`Dar baixa (entregar): ${e.id}`)}
+                            onClick={() => darBaixa(e.id)}
                           >
                             Dar baixa
                           </button>
                         ) : (
                           <button
                             className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
-                            onClick={() => alert(`Imprimir comprovante: ${e.id}`)}
+                            onClick={() => alert(`Comprovante: ${e.id} (implementar)`)}
                           >
                             Comprovante
                           </button>
@@ -284,7 +397,7 @@ export default function EncomendasPage() {
   );
 }
 
-function StatCard({ title, value }: { title: string; value: number }) {
+function StatCard({ title, value }: { title: string; value: number | string }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="text-xs text-slate-400">{title}</div>

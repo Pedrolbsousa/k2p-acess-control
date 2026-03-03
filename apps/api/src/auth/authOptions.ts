@@ -1,13 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
 
-function decodeJwtPayload(token: string) {
-  const part = token.split(".")[1];
-  const padded = part.replace(/-/g, "+").replace(/_/g, "/");
-  const json = Buffer.from(padded, "base64").toString("utf8");
-  return JSON.parse(json);
-}
-
 export const authOptions: NextAuthOptions = {
   providers: [
     KeycloakProvider({
@@ -17,29 +10,32 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      if (account?.access_token) {
-        token.accessToken = account.access_token;
+    async jwt({ token, account, profile }) {
+      const t = token as any;
 
-        const decoded: any = decodeJwtPayload(account.access_token as string);
+      if (account?.access_token) t.accessToken = account.access_token;
 
-        const realmRoles: string[] = decoded?.realm_access?.roles ?? [];
-        const clientId = process.env.KEYCLOAK_CLIENT_ID || "web";
-        const clientRoles: string[] = decoded?.resource_access?.[clientId]?.roles ?? [];
+      const p = profile as any;
 
-        token.roles = Array.from(new Set([...realmRoles, ...clientRoles]));
-        token.condominiumId =
-          decoded?.condominiumId ??
-          decoded?.condominium_id ??
-          token.condominiumId;
-      }
+      const realmRoles: string[] = p?.realm_access?.roles ?? [];
+      const clientId = process.env.KEYCLOAK_CLIENT_ID || "web";
+      const clientRoles: string[] = p?.resource_access?.[clientId]?.roles ?? [];
 
-      return token;
+      const existing: string[] = Array.isArray(t.roles) ? t.roles : [];
+      t.roles = Array.from(new Set([...existing, ...realmRoles, ...clientRoles]));
+
+      t.condominiumId = p?.condominiumId ?? t.condominiumId;
+
+      return t;
     },
+
     async session({ session, token }) {
-      (session as any).accessToken = token.accessToken;
-      (session as any).roles = (token.roles as string[]) ?? [];
-      (session as any).condominiumId = token.condominiumId;
+      const t = token as any;
+
+      (session as any).accessToken = t.accessToken;
+      (session as any).roles = t.roles ?? [];
+      (session as any).condominiumId = t.condominiumId;
+
       return session;
     },
   },

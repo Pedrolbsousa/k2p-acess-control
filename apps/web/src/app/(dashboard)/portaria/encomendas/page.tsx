@@ -158,7 +158,7 @@ export default function EncomendasPage() {
       // traz todas (pendentes + entregues) e filtra no front
       const data = await apiFetch<ApiPackageDelivery[]>(
         "/portaria/packages",
-        accessToken
+        accessToken,
       );
       setEncomendas(data.map(mapApiToUi));
     } catch (e: any) {

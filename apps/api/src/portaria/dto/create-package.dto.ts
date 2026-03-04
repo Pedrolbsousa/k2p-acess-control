@@ -1,6 +1,7 @@
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreatePackageDto {
+  @IsOptional()
   @IsString()
   unitId!: string;
 
@@ -20,10 +21,15 @@ export class CreatePackageDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(255)
   description?: string;
 
   @IsOptional()
   @IsString()
   photoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
 }

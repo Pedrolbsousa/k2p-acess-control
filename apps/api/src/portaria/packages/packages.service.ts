@@ -11,10 +11,6 @@ type ListFilters = {
 export class PackagesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Cria uma encomenda SEMPRE no tenant atual.
-   * Não confie em condominiumId vindo do front.
-   */
   async create(dto: CreatePackageDto, tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('Tenant (condominiumId) não encontrado no token');
@@ -24,16 +20,10 @@ export class PackagesService {
       data: {
         ...dto,
         condominiumId: tenantId,
-        // seu schema já defaulta status para RECEIVED, mas pode setar explicitamente se quiser:
-        // status: 'RECEIVED',
       },
     });
   }
 
-  /**
-   * Lista encomendas do tenant atual.
-   * Permite filtrar por status e unitId.
-   */
   async list(tenantId: string, filters: ListFilters = {}) {
     if (!tenantId) {
       throw new BadRequestException('Tenant (condominiumId) não encontrado no token');
@@ -43,9 +33,6 @@ export class PackagesService {
       typeof filters.status === 'string' && filters.status.trim().length > 0
         ? filters.status.trim().toUpperCase()
         : undefined;
-
-    // Opcional: validar status conforme seu enum PackageStatus
-    // Ajuste se seu enum tiver outros valores além de RECEIVED/DELIVERED
     const allowed = new Set(['RECEIVED', 'DELIVERED']);
     if (status && !allowed.has(status)) {
       throw new BadRequestException('Status inválido. Use RECEIVED ou DELIVERED');
@@ -65,12 +52,6 @@ export class PackagesService {
     });
   }
 
-  /**
-   * Dá baixa (entrega) SOMENTE se pertencer ao tenant atual.
-   * deliveredByPersonId: use um identificador de pessoa/sujeito do seu domínio.
-   * (se você estiver passando req.user.sub do keycloak, tudo bem por enquanto,
-   *  mas ideal é mapear sub -> personId)
-   */
   async deliver(id: string, tenantId: string, deliveredByPersonId: string) {
     if (!tenantId) {
       throw new BadRequestException('Tenant (condominiumId) não encontrado no token');
@@ -87,7 +68,6 @@ export class PackagesService {
       throw new NotFoundException('Encomenda não encontrada');
     }
 
-    // idempotente: se já entregue, retorna
     if (pkg.status === 'DELIVERED') {
       return pkg;
     }

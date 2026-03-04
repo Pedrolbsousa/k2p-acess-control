@@ -38,42 +38,32 @@ export default function PackageCreateModal({ open, onClose, onSubmit }: Props) {
   const [formError, setFormError] = useState<string>("");
 
   const canSubmit = useMemo(() => {
-    // mínimo: description OU tracking
     return Boolean(description.trim() || trackingCode.trim());
   }, [description, trackingCode]);
-
-  // Cleanup da URL da foto
   useEffect(() => {
     return () => {
       if (photoUrl) URL.revokeObjectURL(photoUrl);
     };
   }, [photoUrl]);
-
-  // Fecha modal com ESC
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && open) handleClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  // Quando abre, opcionalmente liga a câmera automaticamente
   useEffect(() => {
     if (!open) {
       stopCamera();
       return;
     }
-    // auto-start é opcional; se quiser manual, remova a linha abaixo
     startCamera().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function startCamera() {
     setCameraError("");
     try {
-      // Se já estiver rodando, não reinicia
+
       if (streamRef.current) {
         setCameraOn(true);
         return;
@@ -140,7 +130,6 @@ export default function PackageCreateModal({ open, onClose, onSubmit }: Props) {
         const url = URL.createObjectURL(blob);
         setPhotoUrl(url);
 
-        // opcional: desligar câmera após tirar foto
         stopCamera();
       },
       "image/jpeg",
@@ -211,7 +200,6 @@ export default function PackageCreateModal({ open, onClose, onSubmit }: Props) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onMouseDown={(e) => {
-        // fecha ao clicar fora
         if (e.target === e.currentTarget) handleClose();
       }}
     >

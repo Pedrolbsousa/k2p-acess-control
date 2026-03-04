@@ -172,7 +172,6 @@ export default function EncomendasPage() {
     if (authStatus === "authenticated") {
       load();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus]);
 
   async function darBaixa(id: string) {
@@ -267,7 +266,6 @@ export default function EncomendasPage() {
               onSubmit={async ({ payload, photo }) => {
                 if (!accessToken) throw new Error("Sem accessToken");
                 await createPackageWithOptionalPhoto(accessToken, payload, photo);
-                // depois: refetch da lista
               }} />
           </div>
         </div>

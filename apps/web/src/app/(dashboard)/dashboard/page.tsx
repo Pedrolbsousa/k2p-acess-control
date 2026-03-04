@@ -1,7 +1,4 @@
-// apps/web/src/app/(dashboard)/page.tsx
 import { getServerSession } from "next-auth";
-// ✅ Ajuste este import se o seu authOptions estiver em outro arquivo.
-// Opção comum (App Router):
 import { authOptions } from "../../authOptions";
 import Link from "next/link";
 
@@ -28,19 +25,12 @@ function firstName(full?: string | null) {
 }
 
 export default async function Page() {
-  // Pega o usuário logado (Keycloak/NextAuth)
   const session = await getServerSession(authOptions);
 
   const userDisplayName =
     session?.user?.name ||
-    // algumas integrações colocam "preferred_username"
-   
-    //session?.user?.preferred_username ||
-  
-    //session?.user?.username ||
     "Usuário";
 
-  // 🔸 Dados fake (substituir depois por chamadas reais)
   const kpis = {
     visitantes: 2,
     encomendasPendentes: 5,

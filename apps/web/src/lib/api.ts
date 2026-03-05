@@ -3,15 +3,21 @@ export const API_BASE_URL =
 
 export async function apiFetch<T>(
   path: string,
-  accessToken: string,
-  init?: RequestInit
+  args: {
+    accessToken?: string;
+    condominiumId?: string;
+    init?: RequestInit;
+  }
 ): Promise<T> {
+  const { accessToken, condominiumId, init } = args;
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       ...(init?.headers || {}),
-      Authorization: `Bearer ${accessToken}`,
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       "Content-Type": "application/json",
+      ...(condominiumId ? { "x-condominium-id": condominiumId } : {}),
     },
   });
 

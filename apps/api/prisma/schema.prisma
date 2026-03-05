@@ -28,7 +28,10 @@ enum PackageEventType {
 
 model PackageDelivery {
   id                 String         @id @default(uuid())
+
   condominiumId      String
+  condominium        Condominium    @relation(fields: [condominiumId], references: [id], onDelete: Restrict)
+
   unitId             String?
   recipientPersonId  String?
 
@@ -56,6 +59,7 @@ model PackageDelivery {
   photos             PackagePhoto[]
   events             PackageEvent[]
 
+  @@index([condominiumId, status])
   @@index([unitId, status])
   @@index([trackingCode])
 }
@@ -83,4 +87,14 @@ model PackageEvent {
   pkg         PackageDelivery @relation(fields: [packageId], references: [id], onDelete: Cascade)
 
   @@index([packageId, occurredAt])
+}
+model Condominium {
+  id        String           @id @default(uuid())
+  name      String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  packages  PackageDelivery[]
+
+  @@index([name])
 }
